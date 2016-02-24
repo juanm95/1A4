@@ -13,6 +13,10 @@ State Overall_LoadForce();
 State Overall_DetermineDumpSide();
 State Overall_DumpRightSide();
 State Overall_DumpLeftSide();
+State DriveBy_Start();
+State DriveBy_StrafeLeft();
+State DriveBy_DepositChip();
+State DriveBy_StrafeToCenter();
 State DumpRight_ApproachingBins();
 State DumpRight_DepositChip();
 State DumpRight_ApproachingNextBin();
@@ -20,6 +24,7 @@ State DumpRight_DumpAll();
 State DumpRight_ReturnToCenter();
 SM Overall(Overall_Start);
 SM DumpRight(DumpRight_ApproachingBins);
+SM DriveBy(DriveBy_Start);
 /*
  * This program waits for a key input and then responds by performing a full motor rotation. 
  * Change the period and pulses to adjust the degree of rotation and the speed of rotation.
@@ -49,7 +54,7 @@ void loop() {
 }
 /************************* Overall States ***********************************/
 State Overall_Start() {
-  Overall.Set(Overall_DetermineDumpSide);
+  Overall.Set(Overall_DriveBy);
 }
 bool DeterminedDumpSide = true;
 bool ShouldDumpRight = true;
@@ -62,6 +67,12 @@ State Overall_DetermineDumpSide() {
     }
   }  
 }
+void MoveBackwards() {
+  
+}
+State Overall_DriveBy() {
+  EXEC(DriveBy);
+}
 State Overall_DumpRight() {
   if (atCenter) {
     
@@ -71,6 +82,40 @@ State Overall_DumpRight() {
   EXEC(DumpRight);
 }
 
+/************************ DriveBy States ***********************************/
+State DriveBy_Start() {
+  MoveToLeftBin();
+  DriveBy.Set(DriveBy_StrafeLeft);
+}
+State DriveBy_StrafeLeft() {
+  if (InFrontOfBin()) {
+    OneChip();
+    DriveBy.Set(DriveBy_DepositChip);
+  }
+}
+void ReturnToCenter() {
+  StartTimer0();  
+}
+State DriveBy_DepositChip(){
+  if (IsPulseFinished()) {
+    if (LastBinVisited()) {
+      ReturnToCenter();
+      DriveBy.Set(DriveBy_StrafeToCenter);
+    }
+    MoveToLeftBin();
+    DriveBy.Set(DriveBy_StrafeLeft);
+  }
+}
+bool AtCenter() {
+  return true;
+}
+State DriveBy_StrafeToCenter(){
+  if(AtCenter()) {
+    MoveBackwards();
+    DriveBy.Set(DriveBy_StrafeLeft);
+    Overall.Set(Overall_ApproachTheForce);
+  }
+}
 /************************ DumpRight States *********************************/
 
 unsigned char TestForKey(void) {
@@ -86,12 +131,12 @@ State DumpRight_ApproachingBins() {
 void StartTimer0() {
   TMRArd_InitTimer(0, TIME_TO_NEXT_BIN);
 }
-void MoveToNextBin() {
+void MoveToLeftBin() {
   StartTimer0();
 }
 State DumpRight_DepositOneChip() {
   if (IsPulseFinished()) {
-    MoveToNextBin();
+    MoveToLeftBin();
     DumpRight.Set(DumpRight_ApproachingNextBin);
   }
 }
