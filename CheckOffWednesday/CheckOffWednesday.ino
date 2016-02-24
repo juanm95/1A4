@@ -4,6 +4,7 @@
 #include <State.h>
 
 #include <Pulse.h>
+
 State Overall_Start();
 State Overall_FindRightBinIR();
 State Overall_ApproachBinLine();
@@ -60,19 +61,87 @@ int chips = 12;
 void loop() {
   EXEC(Overall);
 }
-/************************* Overall States ***********************************/
-void SpinCW() {
+/************************ Actions and Checks *******************************/
+void MoveBackwards() {
+  
+}
+bool LightSensed1K() {
+  
+}
+void SpinCCW() {
+  
+}
+void MoveForwards() {
+  
+}
+bool LeftSensorSensesTape() {
+  
+}
+void PivotCCW() {
+  
+}
+void MoveRight() {
+  
+}
+bool RightSensorSensesTape() {
+  
+}
+void ReturnToCenter() {
+  StartTimer0();  
+}
+bool LastBinVisited() {
+  
+}
+bool AtCenter() {
+  return true;
+}
+
+unsigned char TestForKey(void) {
+  unsigned char KeyEventOccurred;
+  KeyEventOccurred = Serial.available();
+  return KeyEventOccurred;
+}
+void StartTimer0() {
+  TMRArd_InitTimer(0, TIME_TO_NEXT_BIN);
+}
+void MoveToLeftBin() {
   StartTimer0();
 }
-
-State Overall_Start() {
-  StartGameTimer();
-  SpinCW();
-  Overall.Set(Overall_FindRightBinIR);
+unsigned char TestTimer0Expired(void) {
+  return (unsigned char)(TMRArd_IsTimerExpired(0));
+}
+bool InFrontOfBin() {
+  return TestTimer0Expired();
+}
+bool BeaconDetected() {
+  return false;
+}
+void OneChip() {
+  //Serial.print("One");
+  chips--;
+  Pulse(PULSES/12);
 }
 
-State Overall_FindRightBinIR() {
-  EXEC(FindRightBinIR);
+void FullRotation() {
+  //Serial.print("Full");
+  chips = 0;
+  Pulse(PULSES);
+}
+void DumpChips() {
+  //Serial.print("Dumping");
+  Pulse(PULSES * chips /12);
+  chips = 12;
+}
+
+void ReverseDirection() {
+  //Serial.print("Reversing");
+  forward = !forward;
+  if (forward) digitalWrite(4, HIGH);
+  else digitalWrite(4, LOW);
+}
+/************************* Overall States ***********************************/
+State Overall_Start() {
+  Overall.Set(Overall_DriveBy);
 }
 bool DeterminedDumpSide = true;
 bool ShouldDumpRight = true;
@@ -85,9 +154,7 @@ State Overall_DetermineDumpSide() {
     }
   }  
 }
-void MoveBackwards() {
-  
-}
+
 State Overall_DriveBy() {
   EXEC(DriveBy);
 }
@@ -99,20 +166,48 @@ State Overall_DumpRight() {
   }
   EXEC(DumpRight);
 }
+
 /************************ FindRightBinIRStates *****************************/
-bool 1KLightSensed() {
-  
-}
+
 State FindRightBinIR_Spinning() {
-  if (1KLightSensed()) FindRightBinIR.Set(FindRightBinIR_Sensing1KLight);
+  if (LightSensed1K()) FindRightBinIR.Set(FindRightBinIR_Sensing1KLight);
 }
+
 State FindRightBinIR_Sensing1KLight() {
-  if (!1KLightSensed() {
-    
+  if (!LightSensed1K()) {
+    SpinCCW();
+    FindRightBinIR.Set(FindRightBinIR_FindingRightMostBeacon);   
   }
 }
 State FindRightBinIR_FindingRightMostBeacon() {
-  
+  if (LightSensed1K()) {
+    MoveForwards();
+    FindRightBinIR.Set(FindRightBinIR_Spinning);
+    Overall.Set(Overall_ApproachBinLine);
+  }
+}
+/************************ ApproachBinLine States ***************************/
+
+State ApproachBinLine_ApproachingLine() {
+  if (LeftSensorSensesTape()) {
+    PivotCCW();
+    ApproachBinLine.Set(ApproachBinLine_AdjustingToBePerpendicular);
+  }
+}
+
+
+//Potential Bug, adjusting and losing sight of the beacon
+State ApproachBinLine_AdjustingToBePerpendicular() {
+  if (RightSensorSensesTape()) {
+    MoveRight();
+    ApproachBinLine.Set(ApproachBinLine_Centered);
+  }
+}
+State ApproachBinLine_Centered() {
+  if (!LightSensed1K()) {
+    ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
+    Overall.Set(Overall_DriveBy); 
+  }
 }
 /************************ DriveBy States ***********************************/
 State DriveBy_Start() {
@@ -125,9 +220,7 @@ State DriveBy_StrafeLeft() {
     DriveBy.Set(DriveBy_DepositChip);
   }
 }
-void ReturnToCenter() {
-  StartTimer0();  
-}
+
 State DriveBy_DepositChip(){
   if (IsPulseFinished()) {
     if (LastBinVisited()) {
@@ -138,9 +231,7 @@ State DriveBy_DepositChip(){
     DriveBy.Set(DriveBy_StrafeLeft);
   }
 }
-bool AtCenter() {
-  return true;
-}
+
 State DriveBy_StrafeToCenter(){
   if(AtCenter()) {
     MoveBackwards();
@@ -150,37 +241,18 @@ State DriveBy_StrafeToCenter(){
 }
 /************************ DumpRight States *********************************/
 
-unsigned char TestForKey(void) {
-  unsigned char KeyEventOccurred;
-  KeyEventOccurred = Serial.available();
-  return KeyEventOccurred;
-}
-
 State DumpRight_ApproachingBins() {
   OneChip();
   DumpRight.Set(DumpRight_DepositOneChip);
 }
-void StartTimer0() {
-  TMRArd_InitTimer(0, TIME_TO_NEXT_BIN);
-}
-void MoveToLeftBin() {
-  StartTimer0();
-}
+
 State DumpRight_DepositOneChip() {
   if (IsPulseFinished()) {
     MoveToLeftBin();
     DumpRight.Set(DumpRight_ApproachingNextBin);
   }
 }
-unsigned char TestTimer0Expired(void) {
-  return (unsigned char)(TMRArd_IsTimerExpired(0));
-}
-bool InFrontOfBin() {
-  return TestTimer0Expired();
-}
-bool BeaconDetected() {
-  return false;
-}
+
 State DumpRight_ApproachingNextBin() {
   if (InFrontOfBin()) {
     if (BeaconDetected()) {
@@ -208,26 +280,4 @@ State DumpRight_Debugging() {
   }
 }
 
-void OneChip() {
-  //Serial.print("One");
-  chips--;
-  Pulse(PULSES/12);
-}
 
-void FullRotation() {
-  //Serial.print("Full");
-  chips = 0;
-  Pulse(PULSES);
-}
-void DumpChips() {
-  //Serial.print("Dumping");
-  Pulse(PULSES * chips /12);
-  chips = 12;
-}
-
-void ReverseDirection() {
-  //Serial.print("Reversing");
-  forward = !forward;
-  if (forward) digitalWrite(4, HIGH);
-  else digitalWrite(4, LOW);
-}
