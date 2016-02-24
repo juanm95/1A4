@@ -1,3 +1,6 @@
+#include <SM.h>
+#include <State.h>
+
 #include <Pulse.h>
 
 /*
@@ -11,13 +14,18 @@ void setup() {
   pinMode(3, OUTPUT);
   Serial.begin(9600);
   InitPulse(3, PERIOD);
+  digitalWrite(4, HIGH);
+  digitalWrite(3, LOW);
 }
 
 unsigned char TestForKey();
 void RespToKey();
-
+void ReverseDirection();
+void FullRotation();
+void DumpChips();
+void OneChip();
 bool forward = true;
-
+int chips = 12;
 void loop() {
  if (TestForKey() && IsPulseFinished()) RespToKey();
 }
@@ -29,14 +37,33 @@ unsigned char TestForKey(void) {
 }
 
 void RespToKey(void) {
-  Serial.read();
-  if (forward) {
-    Serial.println("Setting LOW");
-    digitalWrite(3, LOW);
-    Pulse(PULSES);
-  } else {
-    Serial.println("Setting HIGH");
-    digitalWrite(4, HIGH);
-    forward = true;
+  char option = Serial.read();
+  switch(option) {
+    case ('r'): ReverseDirection(); break;
+    case ('f'): FullRotation(); break;
+    case ('d'): DumpChips(); break;
+    case ('o'): OneChip(); break;
   }
 }
+
+void OneChip() {
+  chips--;
+  Pulse(PULSES/12);
+}
+
+void FullRotation() {
+  chips = 0;
+  Pulse(PULSES);
+}
+void DumpChips() {
+  Pulse(PULSES * chips /12);
+  chips = 12;
+}
+
+void ReverseDirection() {
+  forward = !forward;
+  if (forward) digitalWrite(4, HIGH);
+  else digitalWrite(4, LOW);
+}
+
+
