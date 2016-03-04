@@ -3,7 +3,7 @@
 #include <SM.h>
 #include <State.h>
 
-bool DEBUGGING = true;
+bool DEBUGGING = false;
 void setPwmFrequency(int pin, int divisor) {
   byte mode;
   if(pin == 5 || pin == 6 || pin == 9 || pin == 10) {
@@ -309,7 +309,7 @@ void ReturnToCenter() {
 //  StartTimer0();  
 }
 bool LastBinVisited() {
-  
+  return false;
 }
 bool AtCenter() {
   return true;
@@ -349,8 +349,8 @@ void CCWArcLeft() {
   BLForward();
   FRForward();
   BRBack();
-  AnalogBRSpeed(100);
-  AnalogBLSpeed(100);
+  AnalogBRSpeed(50);
+  AnalogBLSpeed(50);
 } 
 void CWArcLeft() {
   ActivateMotors();
@@ -358,8 +358,8 @@ void CWArcLeft() {
   BLForward();
   FRForward();
   BRBack();
-  AnalogFLSpeed(100);
-  AnalogFRSpeed(100);
+  AnalogFLSpeed(50);
+  AnalogFRSpeed(50);
 }
 
 void MoveForwardLeft() {
@@ -367,7 +367,7 @@ void MoveForwardLeft() {
   BLForward();
   FRForward();
   digitalWrite(FL_MOTOR_EN, LOW);
-  digitalWrite(FL_MOTOR_EN, LOW);
+  digitalWrite(BR_MOTOR_EN, LOW);
 }
 
 unsigned char Timer0Expired(void) {
@@ -524,7 +524,7 @@ State FindRightBinIR_FindingRightMostBeacon() {
   Serial.println("Finding");
   if (LightSensed1K()) {
     SpinCW();
-    delay(100);
+    delay(125);
     MoveForwards();
     FindRightBinIR.Set(FindRightBinIR_Spinning);
     Overall.Set(Overall_ApproachBinLine);
@@ -612,7 +612,7 @@ State DriveBy_StrafeLeft() {
   }
   else if(FrontSensorSensesTape() && !LeftSensorSensesTape() && !RightSensorSensesTape())
   {
-    
+    MoveForwardLeft();
   }
   else{
     MoveToLeftBin();
@@ -620,7 +620,7 @@ State DriveBy_StrafeLeft() {
   
   if (LightSensed1K()) {
     StopMotors();
-    delay(70);
+    delay(100);
     OneChip();
     DriveBy.Set(DriveBy_DepositChip);
   }
@@ -683,7 +683,7 @@ State Debugger() {
     case ('a'): Overall_FindRightBinIR(); break;
     case ('c'): SpinCW(); break;
     
-    case ('q'): MoveForwardLeft; break;
+    case ('q'): MoveForwardLeft(); break;
     case ('w'): CWArcLeft(); break; 
 
     case ('0'): stepCounter = 0; break;
