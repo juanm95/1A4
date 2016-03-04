@@ -78,10 +78,10 @@ int TAPE_THRESHOLD = 200;
 int RETRACT_AMOUNT = 10;
 int LightBuffer = 100;
 //ANALOG
-#define FRONT_TS A0
-#define BACK_TS A1
-#define LEFT_TS  A3
-#define RIGHT_TS  A2
+#define FRONT_TS A2
+#define BACK_TS A3
+#define LEFT_TS  A1
+#define RIGHT_TS  A0
 //DIGITAL
 int FR_MOTOR_DIR = 7;
 int FL_MOTOR_DIR = 8;
@@ -526,10 +526,11 @@ State FindRightBinIR_FindingRightMostBeacon() {
 State ApproachBinLine_ApproachingLine() {
   Serial.println("Approaching");
   if (LeftSensorSensesTape()) {
-    PivotCW();
-    delay(10000);
-    MoveForwards();
-    ApproachBinLine.Set(ApproachBinLine_InchForward);
+    MoveBackwards();
+    delay(75);
+    StopMotors();
+    delay(100);
+    ApproachBinLine.Set(ApproachBinLine_FirstBin);
 //    StopMotors();
 //    if (IsPulseFinished()) {
 //      BatchDump();
@@ -552,6 +553,7 @@ State ApproachBinLine_FirstBin() {
   //while (!IsPulseFinished());
   OneChip();
   StartTimer0(100);
+  ApproachBinLine.Set(ApproachBinLine_LeftAdjust);
 }
 
 State ApproachBinLine_LeftAdjust() {
