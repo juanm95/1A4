@@ -472,7 +472,12 @@ State Overall_Start() {
     Overall.Set(Overall_FindRightBinIR);
   }
 //  Overall.Set(Overall_DriveBy);
-  Serial.println(GetFrequency(LED));
+  //Serial.println(GetFrequency(LED));
+  if(RightSensorSensesTape())
+  {
+    Serial.println("yayaya");
+  }
+  
    if (TestForKey()) {
      Debugger();
    }
@@ -619,29 +624,31 @@ State DriveBy_StrafeLeft() {
   if(FrontSensorSensesTape() && !LeftSensorSensesTape() && RightSensorSensesTape())
   {
     CWArcLeft();
+    delay(10);
     //Serial.println("CW");
   }
   else if(FrontSensorSensesTape() && LeftSensorSensesTape() && !RightSensorSensesTape())
   {
     CCWArcLeft();
+    delay(10);
     //Serial.println("CCW");
   }
   else if(FrontSensorSensesTape() && !LeftSensorSensesTape() && !RightSensorSensesTape())
   {
     MoveForwards();
-    //Serial.println("ForwardLeft");
     delay(10);
+    //Serial.println("ForwardLeft");
     //MoveForwardLeft();
   }
   else if(!FrontSensorSensesTape() && !LeftSensorSensesTape() && !RightSensorSensesTape())
   {
-    Serial.println("Forwards");
+    //Serial.println("Forwards");
     MoveForwards();
     delay(10);
     //MoveForwardLeft();
   }
   else{
-    Serial.println("Left");
+    //Serial.println("Left");
     MoveToLeftBin();
     delay(10);
   }
@@ -656,7 +663,7 @@ State DriveBy_StrafeLeft() {
     OneChip();
     DriveBy.Set(DriveBy_DepositChip);
   }
-*/
+  */
 }
 
 State DriveBy_DepositChip(){
@@ -708,8 +715,8 @@ State DumpRight_DumpAll() {
 }
 
 State Debugger() {
-//  Serial.print("InFrontOfBin");
   char option = Serial.read();
+  
   switch(option) {
     case ('+'): SpeedUp(); break;
     case ('-'): SlowDown(); break;
