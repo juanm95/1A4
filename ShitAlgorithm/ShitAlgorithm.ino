@@ -3,7 +3,8 @@
 #include <SM.h>
 #include <State.h>
 
-bool DEBUGGING = false;
+
+bool DEBUGGING = true;
 void setPwmFrequency(int pin, int divisor) {
   byte mode;
   if(pin == 5 || pin == 6 || pin == 9 || pin == 10) {
@@ -63,7 +64,7 @@ State DumpRight_DepositChip();
 State DumpRight_ApproachingNextBin();
 State DumpRight_DumpAll();
 State DumpRight_ReturnToCenter();
-SM Overall(Overall_Start);
+SM Overall(Overall_WaitingForOnSignal);
 SM DumpRight(DumpRight_ApproachingBins);
 SM DriveBy(DriveBy_Start);
 SM FindRightBinIR(FindRightBinIR_Spinning);
@@ -78,10 +79,10 @@ int TAPE_THRESHOLD = 200;
 int RETRACT_AMOUNT = 10;
 int LightBuffer = 100;
 //ANALOG
-#define FRONT_TS A0
-#define BACK_TS A1
-#define LEFT_TS  A3
-#define RIGHT_TS  A2
+#define FRONT_TS A2
+#define BACK_TS A3
+#define LEFT_TS  A1
+#define RIGHT_TS  A0
 //DIGITAL
 int FR_MOTOR_DIR = 7;
 int FL_MOTOR_DIR = 8;
@@ -102,6 +103,7 @@ void setupDispenser() {
   pinMode(DISPENSER_DIR, OUTPUT);
   digitalWrite(DISPENSER_STEP, HIGH); //Instantiate to 
   digitalWrite(DISPENSER_DIR, HIGH);
+//  InitPulse(DISPENSER_STEP, PERIOD);
 }
 int MOTOR_FULL_PERIOD = 100;
 int MOTOR_HALF_SPEED = 200;
@@ -142,6 +144,7 @@ void setupMotor() {
 }
 void setupSensors() {
   pinMode(LED, INPUT);
+  pinMode(BUTTON, INPUT_PULLUP);
 }
 void setup() {
   setupMotor();
@@ -161,6 +164,14 @@ void loop() {
   EXEC(Overall);
 }
 /************************ Actions and Checks *******************************/
+void Pulse(int pulses) { 
+  for(int i = 0; i < pulses ; i++) {
+    digitalWrite(DISPENSER_STEP, HIGH);
+    delay(5);
+    digitalWrite(DISPENSER_STEP, LOW);
+    delay(5);
+  }
+}
 void FRForward() {
   digitalWrite(FR_MOTOR_DIR, LOW);
 }
@@ -169,18 +180,6 @@ void FRBack() {
 }
 void FLForward() {
   digitalWrite(FL_MOTOR_DIR, HIGH);
-}
-void AnalogFRSpeed(int speed) {
-  analogWrite(FR_MOTOR_EN, speed);
-}
-void AnalogBRSpeed(int speed) {
-  analogWrite(BR_MOTOR_EN, speed);
-}
-void AnalogFLSpeed(int speed) {
-  analogWrite(FL_MOTOR_EN, speed);
-}
-void AnalogBLSpeed(int speed) {
-  analogWrite(BL_MOTOR_EN, speed);
 }
 void FLBack() {
   digitalWrite(FL_MOTOR_DIR, LOW);
@@ -239,9 +238,6 @@ void PivotCCW() {
 //  analogWrite(BR_MOTOR_EN, 255);
 //  analogWrite(FL_MOTOR_EN, 230);
 //  analogWrite(11, 230);
-}
-void PivotCW() {
-
 }
 int motorSpeed = 0;
 void PWMTest() {
@@ -321,27 +317,9 @@ void StartGameTimer() {
 void MoveToLeftBin() {
   ActivateMotors();
   FLBack();
-  BLForward()
+  BLForward();
   FRForward();
   BRBack();
-}
-void CCWArcLeft() {
-  FLBack();
-  BLForward()
-  FRForward();
-  BRBack();
-  AnalogFLSpeed(200);
-  AnalogFRSpeed(200);
-  AnalogBRSpeed(200);
-} 
-void CWArcLeft() {
-  FLBack();
-  BLForward()
-  FRForward();
-  BRBack();
-  AnalogFLSpeed(200);
-  AnalogBLSpeed(200);
-  AnalogBRSpeed(200);
 }
 unsigned char Timer0Expired(void) {
   return (unsigned char)(TMRArd_IsTimerExpired(0));
@@ -352,21 +330,18 @@ bool InFrontOfBin() {
 bool BeaconDetected() {
   return false;
 }
-
-
-
 int stepSize[12] = {18, 5, 5, 6, 4, 5, 4, 4, 5, 5, 5, 26 - RETRACT_AMOUNT};
 void BatchDump() {
   ExtendDirection();
   chips -= 4;
   Pulse(stepSize[chips]+stepSize[chips+1]+stepSize[chips+2]+stepSize[chips+3] + RETRACT_AMOUNT);
   if (chips == 0) {
-    while (!IsPulseFinished()){}
+//    while (!IsPulseFinished()){}
     RetractDirection();
     FullRotation();
     chips = 12;
   } else {
-    while (!IsPulseFinished()){}
+//    while (!IsPulseFinished()){}
     RetractDirection();
     Pulse(RETRACT_AMOUNT);
   }
@@ -377,12 +352,12 @@ void OneChip() {
   chips--;
   Pulse(stepSize[chips] + RETRACT_AMOUNT);
   if (chips == 0) {    
-    while (!IsPulseFinished()){}
+//    while (!IsPulseFinished()){}
     RetractDirection();
     FullRotation();
     chips = 12;
   } else {
-    while (!IsPulseFinished()){}
+//    while (!IsPulseFinished()){}
     RetractDirection();
     Pulse(RETRACT_AMOUNT);
   }
@@ -410,18 +385,22 @@ void ExtendDirection() {
   digitalWrite(DISPENSER_DIR, HIGH);
 }
 long GetFrequency(int pin) {
-  #define SAMPLES 50
+  #define SAMPLES 30
   long period = 0;
+  
   for(unsigned int j=0; j<SAMPLES; j++) period += pulseIn(pin, LOW, 1000);
   return period / SAMPLES;
 }
 /************************* Overall States ***********************************/
 bool ButtonDetected() {
-  return true;
+  return digitalRead(BUTTON) == LOW;
 }
 State Overall_WaitingForOnSignal() {
+  Serial.println("Waiting For On");
+  StopMotors();
   if (ButtonDetected()) {
     StartGameTimer();
+    Overall.Set(Overall_Start);
   }
 }
 State Overall_Start() {
@@ -431,7 +410,7 @@ State Overall_Start() {
   }
 //  Overall.Set(Overall_DriveBy);
   Serial.println(GetFrequency(LED));
-   if (TestForKey() && IsPulseFinished()) {
+   if (TestForKey()) {
      Debugger();
    }
 }
@@ -493,6 +472,9 @@ State FindRightBinIR_NotSensing1KLight() {
 State FindRightBinIR_FindingRightMostBeacon() {
   Serial.println("Finding");
   if (LightSensed1K()) {
+    StopMotors();
+    SpinCW();
+    delay(100);
     MoveForwards();
     FindRightBinIR.Set(FindRightBinIR_Spinning);
     Overall.Set(Overall_ApproachBinLine);
@@ -502,48 +484,67 @@ State FindRightBinIR_FindingRightMostBeacon() {
 
 State ApproachBinLine_ApproachingLine() {
   Serial.println("Approaching");
-  if (LeftSensorSensesTape()) {
-    PivotCW();
+  if (LeftSensorSensesTape() || FrontSensorSensesTape()) {
+    MoveBackwards();
+    delay(40);
+    StopMotors();
     delay(100);
-    MoveForwards();
-    ApproachBinLine.Set(ApproachBinLine_InchForward)
-//    StopMotors();
+    if (LeftSensorSensesTape()) {
+      Serial.println("Still on Left Tape!!!!!");
+    }
+    BatchDump();
+//    while (!IsPulseFinished) {}
+    OneChip();
+//    while (!IsPulseFinished) {}
+    OneChip();
+//    while (!IsPulseFinished()) {}
+    
+    MoveToLeftBin();
+    while (LightSensed1K()) {}
+    while (!LightSensed1K()) {}
+    StopMotors();
+    OneChip();
+//    while (!IsPulseFinished()) {}
+
+    MoveToLeftBin();
+    while (LightSensed1K()) {}
+    while (!LightSensed1K()) {}
+    StopMotors();
+    OneChip();
+//    while (!IsPulseFinished()) {}
+
+    MoveToLeftBin();
+    while (LightSensed1K()) {}
+    while (!LightSensed1K()) {}
+    StopMotors();
+    OneChip();
+//    while (!IsPulseFinished()) {}
+
+    MoveToLeftBin();
+    while (LightSensed1K()) {}
+    while (!LightSensed1K()) {}
+    StopMotors();
+    OneChip();
+//    while (!IsPulseFinished()) {}
+
+  MoveToLeftBin();
+    
+    while (LightSensed1K()) {}
+    while (!LightSensed1K()) {}
+    
+    StopMotors();
+    OneChip();
+
+//    while (!IsPulseFinished()) {}
+  
+  
 //    if (IsPulseFinished()) {
-//      BatchDump();
+      BatchDump();
 //    }
     // ApproachBinLine.Set(ApproachBinLine_AdjustingToBePerpendicular);
   }
 }
 
-State ApproachBinLine_InchForward() {
-  if (!FrontSensorSensesTape()) {
-    ApproachBinLine.Set(ApproachBinLine_FirstBin);
-  }
-}
-
-State ApproachBinLine_FirstBin() {
-  StopMotors();
-  BatchDump();
-  while (!IsPulseFinished());
-  OneChip();
-  while (!IsPulseFinished());
-  OneChip();
-  StartTimer0(100);
-}
-
-State ApproachBinLine_LeftAdjust() {
-  if (FrontSensorSensesTape()) {
-    CWArcLeft();
-  } else if (!LeftSensorSensesTape()) { //Tilted too Clockwise
-    CCWArcLeft();
-  } else {
-    MoveToLeftBin();
-  }
-  if (Timer0Expired()) {
-    Overall.Set(Overall_DriveBy);
-    ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
-  }
-}
 
 //Potential Bug, adjusting and losing sight of the beacon
 State ApproachBinLine_AdjustingToBePerpendicular() {
@@ -564,22 +565,18 @@ State DriveBy_Start() {
   DriveBy.Set(DriveBy_StrafeLeft);
 }
 State DriveBy_StrafeLeft() {
-  if (LightSensed1K()) {
-    StopMotors();
-    RightStrafe();
-    Delay(100);
-    StopMotors();
+  if (InFrontOfBin()) {
     OneChip();
     DriveBy.Set(DriveBy_DepositChip);
   }
 }
 
 State DriveBy_DepositChip(){
-  if (IsPulseFinished()) {
+//  if (IsPulseFinished()) {
     if (LastBinVisited()) {
       ReturnToCenter();
       DriveBy.Set(DriveBy_StrafeToCenter);
-    }
+//    }
     MoveToLeftBin();
     DriveBy.Set(DriveBy_StrafeLeft);
   }
@@ -600,10 +597,10 @@ State DumpRight_ApproachingBins() {
 }
 
 State DumpRight_DepositOneChip() {
-  if (IsPulseFinished()) {
+//  if (IsPulseFinished()) {
     MoveToLeftBin();
     DumpRight.Set(DumpRight_ApproachingNextBin);
-  }
+//  }
 }
 
 State DumpRight_ApproachingNextBin() { 
@@ -624,6 +621,26 @@ State DumpRight_DumpAll() {
 
 State Debugger() {
 //  Serial.print("InFrontOfBin");
+  if (LeftSensorSensesTape()) {
+    Serial.println("Left On");
+  } else {
+    Serial.println("Left Off");
+  }
+  if (RightSensorSensesTape()) {
+    Serial.println("Right On");
+  } else {
+    Serial.println("Right Off");
+  }
+    if (FrontSensorSensesTape()) {
+    Serial.println("Front On");
+  } else {
+    Serial.println("Front Off");
+  }
+    if (BackSensorSensesTape()) {
+    Serial.println("Back On");
+  } else {
+    Serial.println("Back Off");
+  }
   char option = Serial.read();
   switch(option) {
     case ('+'): SpeedUp(); break;
