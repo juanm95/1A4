@@ -518,7 +518,7 @@ State FindRightBinIR_Spinning() {
 State FindRightBinIR_Sensing1KLight() {
   Serial.println("Sensing");
   if (!LightSensed1K()) {
-    StartTimer0(1000);
+    StartTimer0(600);
     FindRightBinIR.Set(FindRightBinIR_NotSensing1KLight);
   }
 }
@@ -572,11 +572,13 @@ State ApproachBinLine_FirstBin() {
   //while (!IsPulseFinished());
   OneChip();
   //while (!IsPulseFinished());
-  OneChip();
   //StartTimer0(300);
   //SpinCCW();
   //delay(100);
+  MoveBackwards();
+  delay(80);
   StopMotors();
+  delay(100);
   Overall.Set(Overall_DriveBy);
   ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
 }
@@ -614,38 +616,47 @@ State DriveBy_Start() {
   StartTimer0(600);
 }
 State DriveBy_StrafeLeft() {
-
   if(FrontSensorSensesTape() && !LeftSensorSensesTape() && RightSensorSensesTape())
   {
     CWArcLeft();
+    //Serial.println("CW");
   }
   else if(FrontSensorSensesTape() && LeftSensorSensesTape() && !RightSensorSensesTape())
   {
     CCWArcLeft();
+    //Serial.println("CCW");
   }
   else if(FrontSensorSensesTape() && !LeftSensorSensesTape() && !RightSensorSensesTape())
   {
     MoveForwards();
+    //Serial.println("ForwardLeft");
     delay(10);
     //MoveForwardLeft();
   }
   else if(!FrontSensorSensesTape() && !LeftSensorSensesTape() && !RightSensorSensesTape())
   {
+    Serial.println("Forwards");
     MoveForwards();
     delay(10);
     //MoveForwardLeft();
   }
   else{
+    Serial.println("Left");
     MoveToLeftBin();
+    delay(10);
   }
-  
+  /*
   if (LightSensed1K() && Timer0Expired()) {
+    StopMotors();
+    delay(10);
+    RightStrafe();
+    delay(50);
     StopMotors();
     delay(100);
     OneChip();
     DriveBy.Set(DriveBy_DepositChip);
   }
-
+*/
 }
 
 State DriveBy_DepositChip(){
