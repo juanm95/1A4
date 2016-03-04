@@ -4,7 +4,7 @@
 #include <State.h>
 
 
-bool DEBUGGING = true;
+bool DEBUGGING = false;
 void setPwmFrequency(int pin, int divisor) {
   byte mode;
   if(pin == 5 || pin == 6 || pin == 9 || pin == 10) {
@@ -474,7 +474,7 @@ State FindRightBinIR_FindingRightMostBeacon() {
   if (LightSensed1K()) {
     StopMotors();
     SpinCW();
-    delay(100);
+    delay(150);
     MoveForwards();
     FindRightBinIR.Set(FindRightBinIR_Spinning);
     Overall.Set(Overall_ApproachBinLine);
@@ -486,13 +486,15 @@ State ApproachBinLine_ApproachingLine() {
   Serial.println("Approaching");
   if (LeftSensorSensesTape() || FrontSensorSensesTape()) {
     MoveBackwards();
-    delay(40);
+    delay(75);
     StopMotors();
     delay(100);
     if (LeftSensorSensesTape()) {
       Serial.println("Still on Left Tape!!!!!");
     }
-    BatchDump();
+    OneChip();
+    OneChip();
+    OneChip();
 //    while (!IsPulseFinished) {}
     OneChip();
 //    while (!IsPulseFinished) {}
@@ -527,7 +529,7 @@ State ApproachBinLine_ApproachingLine() {
     OneChip();
 //    while (!IsPulseFinished()) {}
 
-  MoveToLeftBin();
+    MoveToLeftBin();
     
     while (LightSensed1K()) {}
     while (!LightSensed1K()) {}

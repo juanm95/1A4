@@ -63,7 +63,7 @@ State DumpRight_DepositChip();
 State DumpRight_ApproachingNextBin();
 State DumpRight_DumpAll();
 State DumpRight_ReturnToCenter();
-SM Overall(Overall_Start);
+SM Overall(Overall_WaitingForOnSignal);
 SM DumpRight(DumpRight_ApproachingBins);
 SM DriveBy(DriveBy_Start);
 SM FindRightBinIR(FindRightBinIR_Spinning);
@@ -142,6 +142,7 @@ void setupMotor() {
 }
 void setupSensors() {
   pinMode(LED, INPUT);
+  pinMode(BUTTON, INPUT_PULLUP);
 }
 void setup() {
   setupMotor();
@@ -157,6 +158,16 @@ void DumpChips();
 void OneChip();
 bool forward = true;
 int chips = 12;
+
+void Pulse(int pulses) { 
+  for(int i = 0; i < pulses ; i++) {
+    digitalWrite(DISPENSER_STEP, HIGH);
+    delay(5);
+    digitalWrite(DISPENSER_STEP, LOW);
+    delay(5);
+  }
+}
+
 void loop() {
   EXEC(Overall);
 }
@@ -321,13 +332,20 @@ void StartGameTimer() {
 void MoveToLeftBin() {
   ActivateMotors();
   FLBack();
-  BLForward()
+  BLForward();
   FRForward();
   BRBack();
 }
+void RightStrafe() {
+  ActivateMotors();
+  FLForward();
+  BLBack();
+  FRBack();
+  BRForward();
+}
 void CCWArcLeft() {
   FLBack();
-  BLForward()
+  BLForward();
   FRForward();
   BRBack();
   AnalogFLSpeed(200);
@@ -336,7 +354,7 @@ void CCWArcLeft() {
 } 
 void CWArcLeft() {
   FLBack();
-  BLForward()
+  BLForward();
   FRForward();
   BRBack();
   AnalogFLSpeed(200);
@@ -361,12 +379,12 @@ void BatchDump() {
   chips -= 4;
   Pulse(stepSize[chips]+stepSize[chips+1]+stepSize[chips+2]+stepSize[chips+3] + RETRACT_AMOUNT);
   if (chips == 0) {
-    while (!IsPulseFinished()){}
+    //while (!IsPulseFinished()){}
     RetractDirection();
     FullRotation();
     chips = 12;
   } else {
-    while (!IsPulseFinished()){}
+    //while (!IsPulseFinished()){}
     RetractDirection();
     Pulse(RETRACT_AMOUNT);
   }
@@ -377,12 +395,12 @@ void OneChip() {
   chips--;
   Pulse(stepSize[chips] + RETRACT_AMOUNT);
   if (chips == 0) {    
-    while (!IsPulseFinished()){}
+    //while (!IsPulseFinished()){}
     RetractDirection();
     FullRotation();
     chips = 12;
   } else {
-    while (!IsPulseFinished()){}
+    //while (!IsPulseFinished()){}
     RetractDirection();
     Pulse(RETRACT_AMOUNT);
   }
@@ -417,11 +435,14 @@ long GetFrequency(int pin) {
 }
 /************************* Overall States ***********************************/
 bool ButtonDetected() {
-  return true;
+  return digitalRead(BUTTON) == LOW;
 }
 State Overall_WaitingForOnSignal() {
+  Serial.println("Waiting For On");
+  StopMotors();
   if (ButtonDetected()) {
     StartGameTimer();
+    Overall.Set(Overall_Start);
   }
 }
 State Overall_Start() {
@@ -431,7 +452,7 @@ State Overall_Start() {
   }
 //  Overall.Set(Overall_DriveBy);
   Serial.println(GetFrequency(LED));
-   if (TestForKey() && IsPulseFinished()) {
+   if (TestForKey()) {
      Debugger();
    }
 }
@@ -493,6 +514,8 @@ State FindRightBinIR_NotSensing1KLight() {
 State FindRightBinIR_FindingRightMostBeacon() {
   Serial.println("Finding");
   if (LightSensed1K()) {
+    SpinCW();
+    delay(100);
     MoveForwards();
     FindRightBinIR.Set(FindRightBinIR_Spinning);
     Overall.Set(Overall_ApproachBinLine);
@@ -504,9 +527,9 @@ State ApproachBinLine_ApproachingLine() {
   Serial.println("Approaching");
   if (LeftSensorSensesTape()) {
     PivotCW();
-    delay(100);
+    delay(10000);
     MoveForwards();
-    ApproachBinLine.Set(ApproachBinLine_InchForward)
+    ApproachBinLine.Set(ApproachBinLine_InchForward);
 //    StopMotors();
 //    if (IsPulseFinished()) {
 //      BatchDump();
@@ -517,16 +540,16 @@ State ApproachBinLine_ApproachingLine() {
 
 State ApproachBinLine_InchForward() {
   if (!FrontSensorSensesTape()) {
+    StopMotors();
     ApproachBinLine.Set(ApproachBinLine_FirstBin);
   }
 }
 
 State ApproachBinLine_FirstBin() {
-  StopMotors();
   BatchDump();
-  while (!IsPulseFinished());
+  //while (!IsPulseFinished());
   OneChip();
-  while (!IsPulseFinished());
+  //while (!IsPulseFinished());
   OneChip();
   StartTimer0(100);
 }
@@ -567,7 +590,7 @@ State DriveBy_StrafeLeft() {
   if (LightSensed1K()) {
     StopMotors();
     RightStrafe();
-    Delay(100);
+    delay(100);
     StopMotors();
     OneChip();
     DriveBy.Set(DriveBy_DepositChip);
@@ -575,14 +598,14 @@ State DriveBy_StrafeLeft() {
 }
 
 State DriveBy_DepositChip(){
-  if (IsPulseFinished()) {
+  //if (IsPulseFinished()) {
     if (LastBinVisited()) {
       ReturnToCenter();
       DriveBy.Set(DriveBy_StrafeToCenter);
     }
     MoveToLeftBin();
     DriveBy.Set(DriveBy_StrafeLeft);
-  }
+  //}
 }
 
 State DriveBy_StrafeToCenter(){
@@ -600,10 +623,10 @@ State DumpRight_ApproachingBins() {
 }
 
 State DumpRight_DepositOneChip() {
-  if (IsPulseFinished()) {
+  //if (IsPulseFinished()) {
     MoveToLeftBin();
     DumpRight.Set(DumpRight_ApproachingNextBin);
-  }
+  //}
 }
 
 State DumpRight_ApproachingNextBin() { 
