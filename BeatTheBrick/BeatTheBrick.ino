@@ -335,6 +335,10 @@ void MoveToLeftBin() {
   BLForward();
   FRForward();
   BRBack();
+  AnalogBRSpeed(200);
+  AnalogBLSpeed(200);
+  AnalogFRSpeed(200);
+  AnalogFLSpeed(200);
 }
 void RightStrafe() {
   ActivateMotors();
@@ -349,8 +353,12 @@ void CCWArcLeft() {
   BLForward();
   FRForward();
   BRBack();
-  AnalogBRSpeed(50);
-  AnalogBLSpeed(50);
+  
+  AnalogFRSpeed(200);
+  AnalogFLSpeed(200);
+  
+  AnalogBRSpeed(10);
+  AnalogBLSpeed(10);
 } 
 void CWArcLeft() {
   ActivateMotors();
@@ -358,8 +366,12 @@ void CWArcLeft() {
   BLForward();
   FRForward();
   BRBack();
-  AnalogFLSpeed(50);
-  AnalogFRSpeed(50);
+  
+  AnalogBRSpeed(200);
+  AnalogBLSpeed(200);
+    
+  AnalogFLSpeed(10);
+  AnalogFRSpeed(10);
 }
 
 void MoveForwardLeft() {
@@ -562,8 +574,8 @@ State ApproachBinLine_FirstBin() {
   //while (!IsPulseFinished());
   OneChip();
   //StartTimer0(300);
-  SpinCCW();
-  delay(100);
+  //SpinCCW();
+  //delay(100);
   StopMotors();
   Overall.Set(Overall_DriveBy);
   ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
@@ -612,18 +624,27 @@ State DriveBy_StrafeLeft() {
   }
   else if(FrontSensorSensesTape() && !LeftSensorSensesTape() && !RightSensorSensesTape())
   {
-    MoveForwardLeft();
+    MoveForwards();
+    delay(10);
+    //MoveForwardLeft();
+  }
+  else if(!FrontSensorSensesTape() && !LeftSensorSensesTape() && !RightSensorSensesTape())
+  {
+    MoveForwards();
+    delay(10);
+    //MoveForwardLeft();
   }
   else{
     MoveToLeftBin();
   }
-  
+  /*
   if (LightSensed1K()) {
     StopMotors();
     delay(100);
     OneChip();
     DriveBy.Set(DriveBy_DepositChip);
   }
+  */
 }
 
 State DriveBy_DepositChip(){
@@ -683,7 +704,7 @@ State Debugger() {
     case ('a'): Overall_FindRightBinIR(); break;
     case ('c'): SpinCW(); break;
     
-    case ('q'): MoveForwardLeft(); break;
+    case ('q'): CCWArcLeft(); break;
     case ('w'): CWArcLeft(); break; 
 
     case ('0'): stepCounter = 0; break;
