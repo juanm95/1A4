@@ -611,6 +611,7 @@ State ApproachBinLine_Centered() {
 /************************ DriveBy States ***********************************/
 State DriveBy_Start() {
   DriveBy.Set(DriveBy_StrafeLeft);
+  StartTimer0(600);
 }
 State DriveBy_StrafeLeft() {
 
@@ -637,14 +638,14 @@ State DriveBy_StrafeLeft() {
   else{
     MoveToLeftBin();
   }
-  /*
-  if (LightSensed1K()) {
+  
+  if (LightSensed1K() && Timer0Expired()) {
     StopMotors();
     delay(100);
     OneChip();
     DriveBy.Set(DriveBy_DepositChip);
   }
-  */
+
 }
 
 State DriveBy_DepositChip(){
@@ -653,6 +654,7 @@ State DriveBy_DepositChip(){
       ReturnToCenter();
       DriveBy.Set(DriveBy_StrafeToCenter);
     }
+    StartTimer0(500);
     DriveBy.Set(DriveBy_StrafeLeft);
   //}
 }
