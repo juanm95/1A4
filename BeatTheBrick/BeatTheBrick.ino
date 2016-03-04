@@ -357,8 +357,8 @@ void CCWArcLeft() {
   AnalogFRSpeed(200);
   AnalogFLSpeed(200);
   
-  AnalogBRSpeed(10);
-  AnalogBLSpeed(10);
+  AnalogBRSpeed(60);
+  AnalogBLSpeed(60);
 } 
 void CWArcLeft() {
   ActivateMotors();
@@ -370,8 +370,8 @@ void CWArcLeft() {
   AnalogBRSpeed(200);
   AnalogBLSpeed(200);
     
-  AnalogFLSpeed(10);
-  AnalogFRSpeed(10);
+  AnalogFLSpeed(100);
+  AnalogFRSpeed(100);
 }
 
 void MoveForwardLeft() {
@@ -540,9 +540,11 @@ State FindRightBinIR_NotSensing1KLight() {
 State FindRightBinIR_FindingRightMostBeacon() {
   Serial.println("Finding");
   if (LightSensed1K()) {
-    SpinCW();
-    delay(125);
+    //SpinCW();
+    //delay(90);
     MoveForwards();
+    AnalogFRSpeed(220);
+    AnalogBRSpeed(220);
     FindRightBinIR.Set(FindRightBinIR_Spinning);
     Overall.Set(Overall_ApproachBinLine);
   }
@@ -624,13 +626,13 @@ State DriveBy_StrafeLeft() {
   if(FrontSensorSensesTape() && !LeftSensorSensesTape() && RightSensorSensesTape())
   {
     CWArcLeft();
-    delay(10);
+    delay(5);
     //Serial.println("CW");
   }
   else if(FrontSensorSensesTape() && LeftSensorSensesTape() && !RightSensorSensesTape())
   {
     CCWArcLeft();
-    delay(10);
+    delay(14);
     //Serial.println("CCW");
   }
   else if(FrontSensorSensesTape() && !LeftSensorSensesTape() && !RightSensorSensesTape())
@@ -650,7 +652,9 @@ State DriveBy_StrafeLeft() {
   else{
     //Serial.println("Left");
     MoveToLeftBin();
-    delay(10);
+    AnalogFLSpeed(230);
+    AnalogBLSpeed(230);
+    delay(5);
   }
   /*
   if (LightSensed1K() && Timer0Expired()) {
