@@ -58,6 +58,7 @@ State DriveBy_Start();
 State DriveBy_StrafeLeft();
 State DriveBy_DepositChip();
 State DriveBy_StrafeToCenter();
+State DriveBy_StrafeToTheForce();
 State DumpRight_ApproachingBins();
 State DumpRight_DepositChip();
 State DumpRight_ApproachingNextBin();
@@ -73,9 +74,9 @@ State Debugger();
 /************ Constants **************/
 int PERIOD = 100;   
 int PULSES = 90;
-int TIME_TO_NEXT_BIN = 3000;// ms
+int TIME_TO_NEXT_BIN = 2150;// ms
 int TAPE_THRESHOLD = 200;
-int RETRACT_AMOUNT = 10;
+int RETRACT_AMOUNT = 9;
 int LightBuffer = 100;
 //ANALOG
 #define FRONT_TS A2
@@ -93,9 +94,13 @@ int BR_MOTOR_EN = 10;
 int BL_MOTOR_EN = 11;
 int DISPENSER_STEP = 3;
 int DISPENSER_DIR = 2;
-int GAME_TIME = 120000;
+long GAME_TIME = 120000;
 int BUTTON = 4;
 int LED = 5;
+
+bool start = false;
+
+int BUCKETS_HIT = 0;
 //1ms
 void setupDispenser() {
   pinMode(DISPENSER_STEP, OUTPUT);
@@ -169,6 +174,10 @@ void Pulse(int pulses) {
 }
 
 void loop() {
+  if(GameTimerExpired())
+  {
+    StopMotors();
+  }
   EXEC(Overall);
 }
 /************************ Actions and Checks *******************************/
@@ -312,7 +321,7 @@ bool LastBinVisited() {
   return false;
 }
 bool AtCenter() {
-  return true;
+  return FrontSensorSensesTape();
 }
 
 unsigned char TestForKey(void) {
@@ -323,11 +332,16 @@ unsigned char TestForKey(void) {
 void StartTimer0(int time) {
   TMRArd_InitTimer(0, time);
 }
-void startBinTimer() {
-    TMRArd_InitTimer(0, TIME_TO_NEXT_BIN);
+
+void StartTimer1(int time) {
+  TMRArd_InitTimer(1, time);
+}
+
+void StartBinTimer() {
+  TMRArd_InitTimer(2, TIME_TO_NEXT_BIN);
 }
 void StartGameTimer() {
-  TMRArd_InitTimer(1, GAME_TIME);
+  TMRArd_InitTimer(3, GAME_TIME);
 }
 void MoveToLeftBin() {
   ActivateMotors();
@@ -370,8 +384,8 @@ void CWArcLeft() {
   AnalogBRSpeed(190);
   AnalogBLSpeed(190);
     
-  AnalogFLSpeed(140);
-  AnalogFRSpeed(140);
+  AnalogFLSpeed(122);
+  AnalogFRSpeed(122);
 }
 
 void MoveForwardLeft() {
@@ -382,9 +396,34 @@ void MoveForwardLeft() {
   digitalWrite(BR_MOTOR_EN, LOW);
 }
 
+void StrafeBackRight(){
+  ActivateMotors();
+  BLBack();
+  FRBack();
+
+  BRForward();
+  FLForward();
+
+  AnalogBRSpeed(110);
+  AnalogFLSpeed(103);
+}
+
 unsigned char Timer0Expired(void) {
   return (unsigned char)(TMRArd_IsTimerExpired(0));
 }
+
+unsigned char Timer1Expired(void) {
+  return (unsigned char)(TMRArd_IsTimerExpired(1));
+}
+
+unsigned char BinTimerExpired(void) {
+  return (unsigned char)(TMRArd_IsTimerExpired(2));
+}
+
+unsigned char GameTimerExpired(void) {
+  return (unsigned char)(TMRArd_IsTimerExpired(3));
+}
+
 bool InFrontOfBin() {
   return Timer0Expired();
 }
@@ -426,6 +465,17 @@ void OneChip() {
     Pulse(RETRACT_AMOUNT);
   }
 }
+
+void DepositUntilBucket() {
+  while(LightSensed1K()) {
+    OneChip();
+    delay(150);
+    if(chips == 12) {
+      break;
+    }
+  }
+}
+
 int stepCounter = 0;
 void OneStep() {
   stepCounter++;
@@ -472,7 +522,7 @@ State Overall_Start() {
     Overall.Set(Overall_FindRightBinIR);
   }
 //  Overall.Set(Overall_DriveBy);
-  //Serial.println(GetFrequency(LED));
+  Serial.println(GetFrequency(LED));
   if(RightSensorSensesTape())
   {
     Serial.println("yayaya");
@@ -523,7 +573,7 @@ State FindRightBinIR_Spinning() {
 State FindRightBinIR_Sensing1KLight() {
   Serial.println("Sensing");
   if (!LightSensed1K()) {
-    StartTimer0(600);
+    StartTimer0(700);
     FindRightBinIR.Set(FindRightBinIR_NotSensing1KLight);
   }
 }
@@ -547,13 +597,26 @@ State FindRightBinIR_FindingRightMostBeacon() {
     AnalogBRSpeed(227);
     FindRightBinIR.Set(FindRightBinIR_Spinning);
     Overall.Set(Overall_ApproachBinLine);
+    StartTimer0(2850);
+    if(start)
+      StartTimer1(1900);
   }
 }
 /************************ ApproachBinLine States ***************************/
 
 State ApproachBinLine_ApproachingLine() {
   Serial.println("Approaching");
-  if (LeftSensorSensesTape()) {
+
+  bool sensingCondition = LeftSensorSensesTape() || Timer0Expired();
+  if(start) {
+    if(Timer1Expired()) {
+      sensingCondition = LeftSensorSensesTape();
+    } else {
+      sensingCondition = false;
+    }
+  }
+  
+  if (sensingCondition) {
     MoveBackwards();
     delay(50);
     StopMotors();
@@ -575,18 +638,32 @@ State ApproachBinLine_InchForward() {
 }
 
 State ApproachBinLine_FirstBin() {
-  BatchDump();
-  //while (!IsPulseFinished());
-  OneChip();
+
+  if(start) {
+    DepositUntilBucket();
+    if(chips == 12) {
+      StrafeBackRight();
+      DriveBy.Set(DriveBy_StrafeToCenter);
+      Overall.Set(Overall_DriveBy);
+      ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
+      StartTimer0(1000);
+    }
+  } else {
+    BatchDump();
+    delay(110);
+    OneChip();
+  }
+  
   //while (!IsPulseFinished());
   //StartTimer0(300);
   //SpinCCW();
-  //delay(100);
+  delay(200);
   MoveBackwards();
   delay(100);
   SpinCCW();
-  delay(70);
+  delay(90);
   CWArcLeft();
+  BUCKETS_HIT++;
   Overall.Set(Overall_DriveBy);
   ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
 }
@@ -621,7 +698,9 @@ State ApproachBinLine_Centered() {
 /************************ DriveBy States ***********************************/
 State DriveBy_Start() {
   DriveBy.Set(DriveBy_StrafeLeft);
+  StartTimer1(14000);
   StartTimer0(1000);
+  StartBinTimer();
 }
 State DriveBy_StrafeLeft() {
   if (LightSensed1K() && Timer0Expired()) {
@@ -632,38 +711,104 @@ State DriveBy_StrafeLeft() {
     AnalogFLSpeed(200);
     DriveBy.Set(DriveBy_DepositChip);
   }
+  if(Timer1Expired())
+  {
+    StrafeBackRight();
+    DriveBy.Set(DriveBy_StrafeToCenter);
+  }
+
+  if(BUCKETS_HIT >= 5) {
+    StrafeBackRight();
+    DriveBy.Set(DriveBy_StrafeToCenter);
+    StartTimer0(1000);
+  }
   
+  if(BinTimerExpired())
+  {
+    StopMotors();
+    delay(200);
+    MoveBackwards();
+    delay(80);
+    SpinCCW();
+    delay(90);
+    CWArcLeft();
+    StartBinTimer();
+    BUCKETS_HIT++;
+  }
+  
+
 }
 
 State DriveBy_DepositChip(){
-  //if (IsPulseFinished()) {
-//    if (LastBinVisited()) {
-//      ReturnToCenter();
-//      DriveBy.Set(DriveBy_StrafeToCenter);
-//    }
+    bool skipAll = false;
     if(RightSensorSensesTape())
     {
       MoveBackwards();
-      delay(50);
+      delay(52);
       StopMotors();
-      delay(100);
-      OneChip();
-      SpinCCW();
-      delay(120);
-      CWArcLeft();
-      StartTimer0(550);
-      DriveBy.Set(DriveBy_StrafeLeft);
+      delay(200);
+      
+      if(start) {
+        DepositUntilBucket();
+        if(chips == 12) {
+          StrafeBackRight();
+          DriveBy.Set(DriveBy_StrafeToCenter);
+          StartTimer0(1000);
+          skipAll = true;
+        }
+      } else {
+        OneChip();
+        if(BUCKETS_HIT >= 2)
+        {
+          delay(100);
+          OneChip();
+        }
+        delay(200);
+      }
+
+      if(!skipAll) {
+        MoveBackwards();
+        delay(100);
+        SpinCCW();
+        delay(130);
+        CWArcLeft();
+        BUCKETS_HIT++;
+        StartTimer0(1200);
+        StartBinTimer();
+        
+        if(BUCKETS_HIT >= 5) {
+          StrafeBackRight();
+          DriveBy.Set(DriveBy_StrafeToCenter);
+          StartTimer0(1000);
+        }
+        else
+        {
+          DriveBy.Set(DriveBy_StrafeLeft);
+        } 
+      }
     }
-  //}
 }
 
 State DriveBy_StrafeToCenter(){
-  if(AtCenter()) {
+  if(AtCenter() && Timer0Expired()) {
     MoveBackwards();
-    DriveBy.Set(DriveBy_StrafeLeft);
-    Overall.Set(Overall_ApproachTheForce);
+    DriveBy.Set(DriveBy_StrafeToTheForce);
   }
 }
+
+State DriveBy_StrafeToTheForce() {
+  BUCKETS_HIT = 0;
+  start = true;
+  if(LeftSensorSensesTape() || RightSensorSensesTape()) {
+    StopMotors(); 
+    SpinCCW();
+    delay(1000);
+    DriveBy.Set(DriveBy_Start);
+    SpinCW();
+    Overall.Set(Overall_FindRightBinIR); 
+  }
+}
+
 /************************ DumpRight States *********************************/
 
 State DumpRight_ApproachingBins() {
@@ -704,7 +849,7 @@ State Debugger() {
     case ('a'): Overall_FindRightBinIR(); break;
     case ('c'): SpinCW(); break;
     
-    case ('q'): CCWArcLeft(); break;
+    case ('q'): StrafeBackRight(); break;
     case ('w'): CWArcLeft(); break; 
 
     case ('0'): stepCounter = 0; break;
