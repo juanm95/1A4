@@ -3,7 +3,7 @@
 #include <SM.h>
 #include <State.h>
 
-bool DEBUGGING = true;
+bool DEBUGGING = false;
 void setPwmFrequency(int pin, int divisor) {
   byte mode;
   if(pin == 5 || pin == 6 || pin == 9 || pin == 10) {
@@ -350,7 +350,7 @@ int leftDistance() {
 }
 
 bool atLastBin() {
-  return leftDistance < 40;
+  return leftDistance() < 40;
 }
 
 void MoveToLeftBin() {
@@ -669,7 +669,6 @@ State ApproachBinLine_FirstBin() {
       ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
       StartTimer0(1000);
       skipAll = true;
-      }
     }
   } else {
     BatchDump();
@@ -680,7 +679,7 @@ State ApproachBinLine_FirstBin() {
   if(!skipAll) {
     delay(200);
     MoveBackwards();
-    delay(100);
+    delay(120);
     SpinCCW();
     delay(90);
     CWArcLeft();
@@ -725,6 +724,7 @@ State DriveBy_Start() {
   StartBinTimer();
 }
 State DriveBy_StrafeLeft() {
+  
   if (LightSensed1K() && Timer0Expired()) {
     MoveForwards();
     AnalogBRSpeed(200);
@@ -744,6 +744,17 @@ State DriveBy_StrafeLeft() {
     DriveBy.Set(DriveBy_StrafeToCenter);
     StartTimer0(1000);
   }
+
+  if(leftDistance() < 8) {
+    while(chips != 12) {
+      OneChip();
+      delay(60);
+    }
+    StopMotors();
+    StrafeBackRight();
+    DriveBy.Set(DriveBy_StrafeToCenter);
+    StartTimer0(1000);
+  }
   
   if(BinTimerExpired())
   {
@@ -752,13 +763,11 @@ State DriveBy_StrafeLeft() {
     MoveBackwards();
     delay(80);
     SpinCCW();
-    delay(90);
+    delay(115);
     CWArcLeft();
     StartBinTimer();
     BUCKETS_HIT++;
   }
-  
-
 }
 
 State DriveBy_DepositChip(){
@@ -794,27 +803,36 @@ State DriveBy_DepositChip(){
         {
           delay(100);
           OneChip();
+          if(atLastBin()) {
+            while(chips != 12) {
+              OneChip();
+              delay(80);
+            }
+          }        
         }
         delay(200);
       }
 
       if(!skipAll) {
         MoveBackwards();
-        delay(100);
-        SpinCCW();
-        delay(130);
-        CWArcLeft();
+        delay(160);
         BUCKETS_HIT++;
-        StartTimer0(1200);
-        StartBinTimer();
         
         if(BUCKETS_HIT >= 5) {
           StrafeBackRight();
           DriveBy.Set(DriveBy_StrafeToCenter);
           StartTimer0(1000);
+          SpinCCW();
+          delay(90);
+          StopMotors();
         }
         else
         {
+          SpinCCW();
+          delay(150);
+          CWArcLeft();
+          StartTimer0(1200);
+          StartBinTimer();
           DriveBy.Set(DriveBy_StrafeLeft);
         } 
       }
