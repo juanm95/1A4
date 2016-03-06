@@ -1,9 +1,9 @@
 #include <Timers.h>
-
+#include <NewPing.h>
 #include <SM.h>
 #include <State.h>
 
-bool DEBUGGING = false;
+bool DEBUGGING = true;
 void setPwmFrequency(int pin, int divisor) {
   byte mode;
   if(pin == 5 || pin == 6 || pin == 9 || pin == 10) {
@@ -94,9 +94,10 @@ int BR_MOTOR_EN = 10;
 int BL_MOTOR_EN = 11;
 int DISPENSER_STEP = 3;
 int DISPENSER_DIR = 2;
-long GAME_TIME = 120000;
+long GAME_TIME = 115000;
 int BUTTON = 4;
 int LED = 5;
+NewPing sonar(A4, A5, 200); 
 
 bool start = false;
 
@@ -343,6 +344,15 @@ void StartBinTimer() {
 void StartGameTimer() {
   TMRArd_InitTimer(3, GAME_TIME);
 }
+
+int leftDistance() {
+  return sonar.ping_cm();
+}
+
+bool atLastBin() {
+  return leftDistance < 40;
+}
+
 void MoveToLeftBin() {
   ActivateMotors();
   FLBack();
@@ -522,10 +532,10 @@ State Overall_Start() {
     Overall.Set(Overall_FindRightBinIR);
   }
 //  Overall.Set(Overall_DriveBy);
-  Serial.println(GetFrequency(LED));
+  //Serial.println(GetFrequency(LED));
   if(RightSensorSensesTape())
   {
-    Serial.println("yayaya");
+    //Serial.println("yayaya");
   }
   
    if (TestForKey()) {
@@ -638,7 +648,7 @@ State ApproachBinLine_InchForward() {
 }
 
 State ApproachBinLine_FirstBin() {
-
+  bool skipAll = false;
   if(start) {
     DepositUntilBucket();
     if(chips == 12) {
@@ -647,6 +657,19 @@ State ApproachBinLine_FirstBin() {
       Overall.Set(Overall_DriveBy);
       ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
       StartTimer0(1000);
+      skipAll = true;
+    } else if(atLastBin()) {
+      while(chips != 12) {
+        OneChip();
+        delay(80);
+      }
+      StrafeBackRight();
+      DriveBy.Set(DriveBy_StrafeToCenter);
+      Overall.Set(Overall_DriveBy);
+      ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
+      StartTimer0(1000);
+      skipAll = true;
+      }
     }
   } else {
     BatchDump();
@@ -654,18 +677,17 @@ State ApproachBinLine_FirstBin() {
     OneChip();
   }
   
-  //while (!IsPulseFinished());
-  //StartTimer0(300);
-  //SpinCCW();
-  delay(200);
-  MoveBackwards();
-  delay(100);
-  SpinCCW();
-  delay(90);
-  CWArcLeft();
-  BUCKETS_HIT++;
-  Overall.Set(Overall_DriveBy);
-  ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
+  if(!skipAll) {
+    delay(200);
+    MoveBackwards();
+    delay(100);
+    SpinCCW();
+    delay(90);
+    CWArcLeft();
+    BUCKETS_HIT++;
+    Overall.Set(Overall_DriveBy);
+    ApproachBinLine.Set(ApproachBinLine_ApproachingLine);
+  }
 }
 
 State ApproachBinLine_LeftAdjust() {
@@ -756,6 +778,16 @@ State DriveBy_DepositChip(){
           StartTimer0(1000);
           skipAll = true;
         }
+        else if(atLastBin()) {
+          while(chips != 12) {
+            OneChip();
+            delay(80);
+          }
+          StrafeBackRight();
+          DriveBy.Set(DriveBy_StrafeToCenter);
+          StartTimer0(1000);
+          skipAll = true;
+        }        
       } else {
         OneChip();
         if(BUCKETS_HIT >= 2)
@@ -849,7 +881,7 @@ State Debugger() {
     case ('a'): Overall_FindRightBinIR(); break;
     case ('c'): SpinCW(); break;
     
-    case ('q'): StrafeBackRight(); break;
+    case ('q'): leftDistance(); break;
     case ('w'): CWArcLeft(); break; 
 
     case ('0'): stepCounter = 0; break;
